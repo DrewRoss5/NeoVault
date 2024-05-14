@@ -1,4 +1,3 @@
-#include <iostream>
 #include <fstream>
 #include <filesystem>
 #include <memory>
@@ -26,6 +25,21 @@ crypto::CipherFile::CipherFile(const std::string& file_path, const std::string& 
 crypto::CipherFile::CipherFile(const std::string& file_path, const unsigned char key[]){
     salt_ = std::unique_ptr<unsigned char[]>(nullptr);
     encrypt_(file_path, key);
+}
+
+crypto::CipherFile::CipherFile(unsigned char in[], size_t ciphertext_size){
+    // raise an error if the ciphertext is too small
+    if (ciphertext_size < HEADER_SIZE+AES_OVERHEAD_SIZE+1)
+        throw std::invalid_argument("Invalid Ciphertext Size");
+    size_ = ciphertext_size - HEADER_SIZE;
+    // create buffers for salt, nonce, and ciphertext
+    salt_ = std::unique_ptr<unsigned char[]> (new unsigned char[SALT_SIZE]);
+    nonce_ = std::unique_ptr<unsigned char[]> (new unsigned char[NONCE_SIZE]);
+    ciphertext_ = std::unique_ptr<unsigned char[]> (new unsigned char[size_]);
+    // parse the salt, nonce, and ciphertext
+    std::memcpy(salt_.get(), in, SALT_SIZE);
+    std::memcpy(nonce_.get(), in + SALT_SIZE, NONCE_SIZE);
+    std::memcpy(ciphertext_.get(), in + HEADER_SIZE, size_);
 }
 
 // sets the ciphertext, nonce, and size, whilst encrypting the file at the provided path
@@ -68,7 +82,6 @@ std::unique_ptr<unsigned char[]> crypto::CipherFile::decrypt(unsigned char* key)
     // create a buffer for the plaintext
     unsigned char *plaintext = new unsigned char[size_ - AES_OVERHEAD_SIZE];
     if (crypto_secretbox_open_easy(plaintext, ciphertext_.get(), size_, nonce_.get(), key) != 0){
-        std::cout << "Error raised" << std::endl;
         throw std::invalid_argument("Failed to decrypt ciphertext");
     }
     return std::unique_ptr<unsigned char[]>(plaintext);
