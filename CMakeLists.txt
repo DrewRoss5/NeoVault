@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.28)
 
 # create the project and set the C++ version
 project(DirectoryEncryptor)
+
+# enforce the use of C++17
 set(CMAKE_CXX_STANDARD 17)
 
 # include vcpkg
