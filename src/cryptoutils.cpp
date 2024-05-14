@@ -1,4 +1,3 @@
-#include <iostream>
 #include <fstream>
 #include <filesystem>
 #include <memory>
@@ -68,7 +67,6 @@ std::unique_ptr<unsigned char[]> crypto::CipherFile::decrypt(unsigned char* key)
     // create a buffer for the plaintext
     unsigned char *plaintext = new unsigned char[size_ - AES_OVERHEAD_SIZE];
     if (crypto_secretbox_open_easy(plaintext, ciphertext_.get(), size_, nonce_.get(), key) != 0){
-        std::cout << "Error raised" << std::endl;
         throw std::invalid_argument("Failed to decrypt ciphertext");
     }
     return std::unique_ptr<unsigned char[]>(plaintext);
