@@ -26,12 +26,15 @@ namespace crypto{
             CipherFile(const std::string& file_path, const std::string& password);
             CipherFile(const std::string& file_path, const unsigned char key[]);
             CipherFile(unsigned char in[], size_t ciphertext_size);  
+            CipherFile import_file(std::string file_path);
             std::unique_ptr<unsigned char[]> decrypt(unsigned char key[]);
             std::unique_ptr<unsigned char[]> decrypt(const std::string& password);
             std::unique_ptr<unsigned char[]> export_ciphertext();
-            std::basic_ofstream<unsigned char*>& write(std::basic_ofstream<unsigned char*>&);
+            std::basic_ofstream<unsigned char*>& write_to_file(std::basic_ofstream<unsigned char*>&);
+            // operators 
+            friend std::basic_ofstream<unsigned char*>& operator<<(std::basic_ofstream<unsigned char*>&stream, CipherFile& file);
             // simple getters 
-            size_t size() {return size_;}
+            const size_t size() {return size_;}
             const unsigned char* nonce() {return nonce_.get();}
             const unsigned char* content() {return ciphertext_.get();}
             const unsigned char* salt() {return salt_.get();}

@@ -42,6 +42,22 @@ crypto::CipherFile::CipherFile(unsigned char in[], size_t ciphertext_size){
     std::memcpy(ciphertext_.get(), in + HEADER_SIZE, size_);
 }
 
+crypto::CipherFile crypto::CipherFile::import_file(std::string file_path){
+    // open the file and ensure it exits
+    std::basic_ifstream<unsigned char> in(file_path);
+    if (!in.good())
+        throw std::exception("Invalid Input File!");
+    // read the file to a buffer
+    size_t file_size = std::filesystem::file_size(file_path);
+    unsigned char* file_buf = new unsigned char[file_size];
+    in.read(file_buf, file_size);
+    // create the ciphertext and clean up
+    CipherFile out(file_buf, file_size);
+    in.close();
+    delete file_buf;
+    return out;
+}
+
 // sets the ciphertext, nonce, and size, whilst encrypting the file at the provided path
 void crypto::CipherFile::encrypt_(const std::string& file_path, const unsigned char key[]){
     // ensure the file exists and open it 
@@ -63,7 +79,6 @@ void crypto::CipherFile::encrypt_(const std::string& file_path, const unsigned c
     crypto_secretbox_easy(ciphertext_.get(), plaintext, file_size, nonce_.get(), key);
     // free the memory allocated to the plaintext
     delete plaintext;
-
 }
 
 // decrypts the file with a salt and returns a unique pointer to the plaintext
@@ -102,7 +117,7 @@ std::unique_ptr<unsigned char[]> crypto::CipherFile::export_ciphertext(){
     }
     // generate the buffer to write to 
     std::unique_ptr<unsigned char[]> export_buf(new unsigned char[size_ + HEADER_SIZE]);
-    // write the  salt, nonce, and ciphertext to buffer
+    // wriste the  salt, nonce, and ciphertext to buffer
     unsigned char* tmp = export_buf.get();
     std::memcpy(tmp, salt_buf, SALT_SIZE);
     std::memcpy(tmp + SALT_SIZE, nonce_.get(), NONCE_SIZE);
@@ -110,6 +125,16 @@ std::unique_ptr<unsigned char[]> crypto::CipherFile::export_ciphertext(){
     return std::move(export_buf);
 }
 
+// writes the exported ciphertext to a file 
+std::basic_ofstream<unsigned char*>& crypto::CipherFile::write_to_file(std::basic_ofstream<unsigned char*>& out){
+    out << export_ciphertext();
+    return out;
+}
+
+// extraction operator for the cipherfile class
+std::basic_ofstream<unsigned char*>& operator<<(std::basic_ofstream<unsigned char*>&stream, crypto::CipherFile& ciphertext){
+    return ciphertext.write_to_file(stream);
+}
 
 // fills a salt-sized buffer with random bytes
 void crypto::gen_salt(unsigned char salt[]){
@@ -138,6 +163,6 @@ void crypto::hash_key(std::string password, const unsigned char salt[], unsigned
 std::string crypto::hex_string(const unsigned char bytes[], size_t size){
     std::stringstream ss;
     for (int i = 0; i < size; i++)
-        ss << std::setw(2) <<std::hex <<std::setfill('0') << (int)  bytes[i];
+        ss << std::setw(2) << std::hex << std::setfill('0') << (int) bytes[i];
     return ss.str();
 }
