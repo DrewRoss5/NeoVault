@@ -26,7 +26,7 @@ namespace crypto{
             CipherFile(const std::string& file_path, const std::string& password);
             CipherFile(const std::string& file_path, const unsigned char key[]);
             CipherFile(unsigned char in[], size_t ciphertext_size);  
-            CipherFile import_file(std::string file_path);
+            static CipherFile import_file(std::string file_path);
             std::unique_ptr<unsigned char[]> decrypt(unsigned char key[]);
             std::unique_ptr<unsigned char[]> decrypt(const std::string& password);
             std::unique_ptr<unsigned char[]> export_ciphertext();
