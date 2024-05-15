@@ -30,9 +30,9 @@ namespace crypto{
             std::unique_ptr<unsigned char[]> decrypt(unsigned char key[]);
             std::unique_ptr<unsigned char[]> decrypt(const std::string& password);
             std::unique_ptr<unsigned char[]> export_ciphertext();
-            std::basic_ofstream<unsigned char*>& write_to_file(std::basic_ofstream<unsigned char*>&);
+            std::basic_ofstream<unsigned char>& write_to_file(std::basic_ofstream<unsigned char>&);
             // operators 
-            friend std::basic_ofstream<unsigned char*>& operator<<(std::basic_ofstream<unsigned char*>&stream, CipherFile& file);
+            friend std::basic_ofstream<unsigned char>& operator<<(std::basic_ofstream<unsigned char>&stream, CipherFile& file);
             // simple getters 
             const size_t size() {return size_;}
             const unsigned char* nonce() {return nonce_.get();}
@@ -51,7 +51,7 @@ namespace crypto{
         public:
             std::unique_ptr<unsigned char[]> export_vault();
             std::unique_ptr<unsigned char[]> decrypt(unsigned char* key);
-            std::basic_ofstream<unsigned char*>& write(std::basic_ofstream<unsigned char*>&);
+            std::basic_ofstream<unsigned char>& write(std::basic_ofstream<unsigned char>&);
     };
 
     // other "utility" functions

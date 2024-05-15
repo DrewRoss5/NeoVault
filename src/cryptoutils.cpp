@@ -126,13 +126,13 @@ std::unique_ptr<unsigned char[]> crypto::CipherFile::export_ciphertext(){
 }
 
 // writes the exported ciphertext to a file 
-std::basic_ofstream<unsigned char*>& crypto::CipherFile::write_to_file(std::basic_ofstream<unsigned char*>& out){
+std::basic_ofstream<unsigned char>& crypto::CipherFile::write_to_file(std::basic_ofstream<unsigned char>& out){
     out << export_ciphertext();
     return out;
 }
 
 // extraction operator for the cipherfile class
-std::basic_ofstream<unsigned char*>& operator<<(std::basic_ofstream<unsigned char*>&stream, crypto::CipherFile& ciphertext){
+std::basic_ofstream<unsigned char>& operator<<(std::basic_ofstream<unsigned char>&stream, crypto::CipherFile& ciphertext){
     return ciphertext.write_to_file(stream);
 }
 
