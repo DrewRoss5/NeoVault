@@ -23,7 +23,6 @@ int main(int argc, char* argv[]){
             std::basic_ofstream<unsigned char> out_file(argv[2]);
             ciphertext.write_to_file(out_file);
             out_file.close();
-            std::cout << "Size: " << ciphertext.size() << "\nSalt: " << hex_string(ciphertext.salt(), SALT_SIZE) << "\nNonce: " << hex_string(ciphertext.nonce(), NONCE_SIZE) << "\nCiphertext: " << hex_string(ciphertext.content(), ciphertext.size()) << std::endl;
             std::cout << "File Encrypted Succesfully" << std::endl;
         }
         catch (std::exception err){
@@ -39,7 +38,6 @@ int main(int argc, char* argv[]){
         // attempt to decrypt the file 
         try{
             CipherFile ciphertext(argv[2]);
-            std::cout << "Size: " << ciphertext.size() << "\nSalt: " << hex_string(ciphertext.salt(), SALT_SIZE) << "\nNonce: " << hex_string(ciphertext.nonce(), NONCE_SIZE) << "\nCiphertext: " << hex_string(ciphertext.content(), ciphertext.size()) << std::endl;
             std::unique_ptr<unsigned char[]> plaintext = ciphertext.decrypt(password);
             // export the plaintext
             std::basic_ofstream<unsigned char> out_file(argv[2]);

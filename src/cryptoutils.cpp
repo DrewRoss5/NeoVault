@@ -1,4 +1,3 @@
-#include <iostream>
 #include <fstream>
 #include <memory>
 #include <iomanip>
@@ -28,7 +27,6 @@ crypto::CipherFile::CipherFile(const std::string& file_path, const unsigned char
 }
 
 crypto::CipherFile::CipherFile(unsigned char* in, size_t ciphertext_size){
-    std::cout << "File Content: " << hex_string(in, ciphertext_size) << std::endl;
     in = 0;
     // raise an error if the ciphertext is too small
     if (ciphertext_size < HEADER_SIZE+AES_OVERHEAD_SIZE+1)
