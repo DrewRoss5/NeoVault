@@ -11,22 +11,22 @@
 #define SALT_SIZE 16
 #define AES_OVERHEAD_SIZE crypto_secretbox_MACBYTES
 #define NONCE_SIZE crypto_secretbox_NONCEBYTES
-#define HEADER_SIZE SALT_SIZE + NONCE_SIZE
+#define HEADER_SIZE 40
 
 namespace crypto{
     // a class representing a single encrypted file
     class CipherFile{
         private:
             size_t size_;
-            std::unique_ptr<unsigned char[]> nonce_;
-            std::unique_ptr<unsigned char[]> salt_;
-            std::unique_ptr<unsigned char[]> ciphertext_;
+            unsigned char* nonce_;
+            unsigned char* salt_;
+            unsigned char* ciphertext_;
             void encrypt_(const std::string& file_path, const unsigned char key[]);
         public:
             CipherFile(const std::string& file_path, const std::string& password);
             CipherFile(const std::string& file_path, const unsigned char key[]);
-            CipherFile(unsigned char in[], size_t ciphertext_size);  
-            static CipherFile import_file(std::string file_path);
+            CipherFile(unsigned char *in, size_t ciphertext_size);  
+            CipherFile(std::string file_path);
             std::unique_ptr<unsigned char[]> decrypt(unsigned char key[]);
             std::unique_ptr<unsigned char[]> decrypt(const std::string& password);
             std::unique_ptr<unsigned char[]> export_ciphertext();
@@ -35,9 +35,10 @@ namespace crypto{
             friend std::basic_ofstream<unsigned char>& operator<<(std::basic_ofstream<unsigned char>&stream, CipherFile& file);
             // simple getters 
             const size_t size() {return size_;}
-            const unsigned char* nonce() {return nonce_.get();}
-            const unsigned char* content() {return ciphertext_.get();}
-            const unsigned char* salt() {return salt_.get();}
+            const unsigned char* nonce() {return nonce_;}
+            const unsigned char* content() {return ciphertext_;}
+            const unsigned char* salt() {return salt_;}
+            ~CipherFile();
     };
 
     // a class representing an encrypted directory 

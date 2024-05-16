@@ -1,5 +1,5 @@
+#include <iostream>
 #include <fstream>
-#include <filesystem>
 #include <memory>
 #include <iomanip>
 #include <sstream>
@@ -14,69 +14,84 @@
 crypto::CipherFile::CipherFile(const std::string& file_path, const std::string& password){
     // create the key, and salt
     unsigned char key[KEY_SIZE];
-    salt_ = std::unique_ptr<unsigned char[]>(new unsigned char[SALT_SIZE]);
-    gen_salt(salt_.get());
+    salt_ = new unsigned char[SALT_SIZE];
+    gen_salt(salt_);
     // hash the password and encrypt
-    hash_key(password, salt_.get(), key);
+    hash_key(password, salt_, key);
     encrypt_(file_path, key);
 
 }
 
 crypto::CipherFile::CipherFile(const std::string& file_path, const unsigned char key[]){
-    salt_ = std::unique_ptr<unsigned char[]>(nullptr);
+    salt_ = nullptr;
     encrypt_(file_path, key);
 }
 
-crypto::CipherFile::CipherFile(unsigned char in[], size_t ciphertext_size){
+crypto::CipherFile::CipherFile(unsigned char* in, size_t ciphertext_size){
+    std::cout << "File Content: " << hex_string(in, ciphertext_size) << std::endl;
+    in = 0;
     // raise an error if the ciphertext is too small
     if (ciphertext_size < HEADER_SIZE+AES_OVERHEAD_SIZE+1)
         throw std::invalid_argument("Invalid Ciphertext Size");
     size_ = ciphertext_size - HEADER_SIZE;
     // create buffers for salt, nonce, and ciphertext
-    salt_ = std::unique_ptr<unsigned char[]> (new unsigned char[SALT_SIZE]);
-    nonce_ = std::unique_ptr<unsigned char[]> (new unsigned char[NONCE_SIZE]);
-    ciphertext_ = std::unique_ptr<unsigned char[]> (new unsigned char[size_]);
+    salt_ = new unsigned char[SALT_SIZE];
+    nonce_ = new unsigned char[NONCE_SIZE];
+    ciphertext_ = new unsigned char[size_];
     // parse the salt, nonce, and ciphertext
-    std::memcpy(salt_.get(), in, SALT_SIZE);
-    std::memcpy(nonce_.get(), in + SALT_SIZE, NONCE_SIZE);
-    std::memcpy(ciphertext_.get(), in + HEADER_SIZE, size_);
+
+    std::memcpy(salt_, in, SALT_SIZE);
+    std::memcpy(nonce_, in + SALT_SIZE, NONCE_SIZE);
+    std::memcpy(ciphertext_, in + HEADER_SIZE, size_);
 }
 
-crypto::CipherFile crypto::CipherFile::import_file(std::string file_path){
+crypto::CipherFile::CipherFile(std::string file_path){
     // open the file and ensure it exits
-    std::basic_ifstream<unsigned char> in(file_path);
+    std::basic_fstream<unsigned char> in(file_path);
     if (!in.good())
         throw std::exception("Invalid Input File!");
-    // read the file to a buffer
-    size_t file_size = std::filesystem::file_size(file_path);
+    // determine the filesize
+    in.seekg(0, in.end);
+    size_t file_size = in.tellg();
+    in.seekg(0, in.beg);
+    // read the file into a single buffer
     unsigned char* file_buf = new unsigned char[file_size];
     in.read(file_buf, file_size);
-    // create the ciphertext and clean up
-    CipherFile out(file_buf, file_size);
     in.close();
+    // define the size and create buffers
+    size_ = file_size - HEADER_SIZE;
+    salt_ = new unsigned char[SALT_SIZE];
+    nonce_ = new unsigned char[NONCE_SIZE];
+    ciphertext_ = new unsigned char[size_];
+    // parse the ciphertext file into its components
+    std::memcpy(salt_, file_buf, SALT_SIZE);
+    std::memcpy(nonce_, file_buf + SALT_SIZE, NONCE_SIZE);
+    std::memcpy(ciphertext_, file_buf + HEADER_SIZE, size_);
     delete file_buf;
-    return out;
+    
 }
 
 // sets the ciphertext, nonce, and size, whilst encrypting the file at the provided path
 void crypto::CipherFile::encrypt_(const std::string& file_path, const unsigned char key[]){
     // ensure the file exists and open it 
-    std::basic_ifstream<unsigned char> in_stream(file_path);
+    std::basic_fstream<unsigned char> in_stream(file_path);
     if (!in_stream.good())
         throw std::invalid_argument("The file could not be read");
     // get the size of the of the file
-    size_t file_size = std::filesystem::file_size(file_path);
+    in_stream.seekg(0, in_stream.end);
+    size_t file_size = in_stream.tellg();
+    in_stream.seekg(0, in_stream.beg);
     // read the plaintext of the file
     unsigned char* plaintext = new unsigned char[file_size];
     in_stream.read(plaintext, file_size);
     in_stream.close();
     // generate a nonce
-    nonce_ = std::unique_ptr<unsigned char[]>(new unsigned char[NONCE_SIZE]);
-    gen_nonce(nonce_.get());
+    nonce_ = new unsigned char[NONCE_SIZE];
+    gen_nonce(nonce_);
     // encrypt the ciphertext
     size_ = AES_OVERHEAD_SIZE + file_size;
-    ciphertext_ = std::unique_ptr<unsigned char[]>(new unsigned char[size_]);
-    crypto_secretbox_easy(ciphertext_.get(), plaintext, file_size, nonce_.get(), key);
+    ciphertext_ = new unsigned char[size_];
+    crypto_secretbox_easy(ciphertext_, plaintext, file_size, nonce_, key);
     // free the memory allocated to the plaintext
     delete plaintext;
 }
@@ -84,11 +99,11 @@ void crypto::CipherFile::encrypt_(const std::string& file_path, const unsigned c
 // decrypts the file with a salt and returns a unique pointer to the plaintext
 std::unique_ptr<unsigned char[]> crypto::CipherFile::decrypt(const std::string& password){
     // raise an error if there is no salt (implying the file was not encrypted with a password)
-    if (salt_.get() == nullptr)
+    if (salt_ == nullptr)
         throw std::exception("This cipertext cannot be decrypted with a password");
     // hash the key and decrypt the file 
     unsigned char key[KEY_SIZE];
-    hash_key(password, salt_.get(), key);
+    hash_key(password, salt_, key);
     return std::move(decrypt(key));
 }
 
@@ -96,7 +111,7 @@ std::unique_ptr<unsigned char[]> crypto::CipherFile::decrypt(const std::string& 
 std::unique_ptr<unsigned char[]> crypto::CipherFile::decrypt(unsigned char* key){
     // create a buffer for the plaintext
     unsigned char *plaintext = new unsigned char[size_ - AES_OVERHEAD_SIZE];
-    if (crypto_secretbox_open_easy(plaintext, ciphertext_.get(), size_, nonce_.get(), key) != 0){
+    if (crypto_secretbox_open_easy(plaintext, ciphertext_, size_, nonce_, key) != 0){
         throw std::invalid_argument("Failed to decrypt ciphertext");
     }
     return std::unique_ptr<unsigned char[]>(plaintext);
@@ -107,7 +122,7 @@ std::unique_ptr<unsigned char[]> crypto::CipherFile::export_ciphertext(){
     // write the salt to a buffer to export, if present, otherwise, write all zeroes
     unsigned char salt_buf[SALT_SIZE];
     if (salt_){
-        unsigned char* tmp = salt_.get();
+        unsigned char* tmp = salt_;
         for (int i = 0; i < SALT_SIZE; i++)
             salt_buf[i] = tmp[i];
     }
@@ -119,16 +134,23 @@ std::unique_ptr<unsigned char[]> crypto::CipherFile::export_ciphertext(){
     std::unique_ptr<unsigned char[]> export_buf(new unsigned char[size_ + HEADER_SIZE]);
     // wriste the  salt, nonce, and ciphertext to buffer
     unsigned char* tmp = export_buf.get();
-    std::memcpy(tmp, salt_buf, SALT_SIZE);
-    std::memcpy(tmp + SALT_SIZE, nonce_.get(), NONCE_SIZE);
-    std::memcpy(tmp + HEADER_SIZE, ciphertext_.get(), size_);
+    memcpy(tmp, salt_buf, SALT_SIZE);
+    memcpy(tmp + SALT_SIZE, nonce_, NONCE_SIZE);
+    memcpy(tmp + HEADER_SIZE, ciphertext_, size_);
     return std::move(export_buf);
 }
 
 // writes the exported ciphertext to a file 
 std::basic_ofstream<unsigned char>& crypto::CipherFile::write_to_file(std::basic_ofstream<unsigned char>& out){
-    out << export_ciphertext();
+    out.write(export_ciphertext().get(), size_ + HEADER_SIZE);
     return out;
+}
+
+// deallocates memory for the cipherfile class
+crypto::CipherFile::~CipherFile(){
+    delete salt_;
+    delete nonce_;
+    delete ciphertext_;
 }
 
 // extraction operator for the cipherfile class
