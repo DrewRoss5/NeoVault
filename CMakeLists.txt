@@ -16,5 +16,5 @@ find_package(unofficial-sodium CONFIG REQUIRED)
 set(SOURCE_DIR "src/")
 
 # create the executable 
-add_executable(DirEncrypt ${SOURCE_DIR}main.cpp ${SOURCE_DIR}cryptoutils.h ${SOURCE_DIR}cryptoutils.cpp)
-target_link_libraries(DirEncrypt unofficial-sodium::sodium)
+add_executable(NeoVault ${SOURCE_DIR}main.cpp ${SOURCE_DIR}cryptoutils.h ${SOURCE_DIR}cryptoutils.cpp)
+target_link_libraries(NeoVault unofficial-sodium::sodium)
