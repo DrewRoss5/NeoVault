@@ -20,10 +20,11 @@ int main(int argc, char* argv[]){
         try{
             CipherFile ciphertext(argv[2], password);
             // export the encrypted files
-            std::basic_ofstream<unsigned char> out_file(argv[2]);
+            std::basic_ofstream<unsigned char> out_file(argv[2], std::ios::binary);
             ciphertext.write_to_file(out_file);
             out_file.close();
             std::cout << "File Encrypted Succesfully" << std::endl;
+            std::cout << "Testing Purposes" << std::endl;
         }
         catch (std::exception err){
             std::cout << err.what() << std::endl;

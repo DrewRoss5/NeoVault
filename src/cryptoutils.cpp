@@ -15,7 +15,7 @@ crypto::CipherFile::CipherFile(const std::string& file_path, const std::string& 
     unsigned char key[KEY_SIZE];
     salt_ = new unsigned char[SALT_SIZE];
     gen_salt(salt_);
-    // hash the password and encrypt
+    // hash the password and encryptf
     hash_key(password, salt_, key);
     encrypt_(file_path, key);
 
@@ -27,7 +27,6 @@ crypto::CipherFile::CipherFile(const std::string& file_path, const unsigned char
 }
 
 crypto::CipherFile::CipherFile(unsigned char* in, size_t ciphertext_size){
-    in = 0;
     // raise an error if the ciphertext is too small
     if (ciphertext_size < HEADER_SIZE+AES_OVERHEAD_SIZE+1)
         throw std::invalid_argument("Invalid Ciphertext Size");
@@ -45,7 +44,7 @@ crypto::CipherFile::CipherFile(unsigned char* in, size_t ciphertext_size){
 
 crypto::CipherFile::CipherFile(std::string file_path){
     // open the file and ensure it exits
-    std::basic_fstream<unsigned char> in(file_path);
+    std::basic_ifstream<unsigned char> in(file_path, std::ios_base::binary);
     if (!in.good())
         throw std::exception("Invalid Input File!");
     // determine the filesize
