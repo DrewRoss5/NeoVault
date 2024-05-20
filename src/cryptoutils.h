@@ -24,6 +24,7 @@ namespace crypto{
             unsigned char* ciphertext_;
             void encrypt_(const std::string& file_path, const unsigned char key[]);
             void import_(unsigned char* in, size_t ciphertext_size);
+            void import_from_file_(std::basic_istream<unsigned char>& in);
         public:
             CipherFile() : nonce_(nullptr), salt_(nullptr), ciphertext_(nullptr), size_(0) {}
             CipherFile(const std::string& file_path, const std::string& password);

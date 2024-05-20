@@ -34,16 +34,8 @@ crypto::CipherFile::CipherFile(std::string file_path){
     std::basic_ifstream<unsigned char> in(file_path, std::ios_base::binary);
     if (!in.good())
         throw std::exception("Invalid Input File!");
-    // determine the filesize
-    in.seekg(0, in.end);
-    size_t file_size = in.tellg();
-    in.seekg(0, in.beg);
-    // read the file into a single buffer
-    unsigned char* file_buf = new unsigned char[file_size];
-    in.read(file_buf, file_size);
+    import_from_file_(in);
     in.close();
-    import_(file_buf, file_size);
-    
 }
 
 // sets the ciphertext, nonce, and size, whilst encrypting the file at the provided path
@@ -52,7 +44,7 @@ void crypto::CipherFile::encrypt_(const std::string& file_path, const unsigned c
     std::basic_fstream<unsigned char> in_stream(file_path);
     if (!in_stream.good())
         throw std::invalid_argument("The file could not be read");
-    // get the size of the of the file
+    // get the size of the file
     in_stream.seekg(0, in_stream.end);
     size_t file_size = in_stream.tellg();
     in_stream.seekg(0, in_stream.beg);
@@ -85,6 +77,20 @@ void crypto::CipherFile::import_(unsigned char* in, size_t ciphertext_size){
     std::memcpy(salt_, in, SALT_SIZE);
     std::memcpy(nonce_, in + SALT_SIZE, NONCE_SIZE);
     std::memcpy(ciphertext_, in + HEADER_SIZE, size_);
+}
+
+// imports ciphertext from a file stream of an exported ciphertext file
+void crypto::CipherFile::import_from_file_(std::basic_istream<unsigned char>& in_stream){
+    // get the size of the file
+    in_stream.seekg(0, in_stream.end);
+    size_t file_size = in_stream.tellg();
+    in_stream.seekg(0, in_stream.beg);
+    // read the file to a buffer 
+    unsigned char* file_buf = new unsigned char[file_size];
+    in_stream.read(file_buf, file_size);
+    // import the file's contents
+    import_(file_buf, file_size);
+    delete[] file_buf;
 }
 
 // decrypts the file with a salt and returns a unique pointer to the plaintext
@@ -139,15 +145,7 @@ std::basic_ofstream<unsigned char>& crypto::CipherFile::write_to_file(std::basic
 
 // reads exported ciphertext from a file stream
 std::basic_ifstream<unsigned char>& crypto::operator>>(std::basic_ifstream<unsigned char>&stream, crypto::CipherFile& file){
-    // determine the size of the file
-    stream.seekg(0, stream.end);
-    size_t file_size = stream.tellg();
-    stream.seekg(0, stream.beg);
-    // read the file and import 
-    unsigned char* file_buf = new unsigned char[file_size];
-    stream.read(file_buf, file_size);
-    file.import_(file_buf, file_size);
-    delete[] file_buf;
+    file.import_from_file_(stream);
     return stream;
 }
 
