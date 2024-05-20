@@ -18,7 +18,6 @@ crypto::CipherFile::CipherFile(const std::string& file_path, const std::string& 
     // hash the password and encryptf
     hash_key(password, salt_, key);
     encrypt_(file_path, key);
-
 }
 
 crypto::CipherFile::CipherFile(const std::string& file_path, const unsigned char key[]){
@@ -27,19 +26,7 @@ crypto::CipherFile::CipherFile(const std::string& file_path, const unsigned char
 }
 
 crypto::CipherFile::CipherFile(unsigned char* in, size_t ciphertext_size){
-    // raise an error if the ciphertext is too small
-    if (ciphertext_size < HEADER_SIZE+AES_OVERHEAD_SIZE+1)
-        throw std::invalid_argument("Invalid Ciphertext Size");
-    size_ = ciphertext_size - HEADER_SIZE;
-    // create buffers for salt, nonce, and ciphertext
-    salt_ = new unsigned char[SALT_SIZE];
-    nonce_ = new unsigned char[NONCE_SIZE];
-    ciphertext_ = new unsigned char[size_];
-    // parse the salt, nonce, and ciphertext
-
-    std::memcpy(salt_, in, SALT_SIZE);
-    std::memcpy(nonce_, in + SALT_SIZE, NONCE_SIZE);
-    std::memcpy(ciphertext_, in + HEADER_SIZE, size_);
+    import_(in, ciphertext_size);
 }
 
 crypto::CipherFile::CipherFile(std::string file_path){
@@ -55,16 +42,7 @@ crypto::CipherFile::CipherFile(std::string file_path){
     unsigned char* file_buf = new unsigned char[file_size];
     in.read(file_buf, file_size);
     in.close();
-    // define the size and create buffers
-    size_ = file_size - HEADER_SIZE;
-    salt_ = new unsigned char[SALT_SIZE];
-    nonce_ = new unsigned char[NONCE_SIZE];
-    ciphertext_ = new unsigned char[size_];
-    // parse the ciphertext file into its components
-    std::memcpy(salt_, file_buf, SALT_SIZE);
-    std::memcpy(nonce_, file_buf + SALT_SIZE, NONCE_SIZE);
-    std::memcpy(ciphertext_, file_buf + HEADER_SIZE, size_);
-    delete file_buf;
+    import_(file_buf, file_size);
     
 }
 
@@ -91,6 +69,22 @@ void crypto::CipherFile::encrypt_(const std::string& file_path, const unsigned c
     crypto_secretbox_easy(ciphertext_, plaintext, file_size, nonce_, key);
     // free the memory allocated to the plaintext
     delete plaintext;
+}
+
+// imports ciphertext from an unsigned char array of exported ciphertext
+void crypto::CipherFile::import_(unsigned char* in, size_t ciphertext_size){
+    // raise an error if the ciphertext is too small
+    if (ciphertext_size < HEADER_SIZE+AES_OVERHEAD_SIZE+1)
+        throw std::invalid_argument("Invalid Ciphertext Size");
+    size_ = ciphertext_size - HEADER_SIZE;
+    // create buffers for salt, nonce, and ciphertext
+    salt_ = new unsigned char[SALT_SIZE];
+    nonce_ = new unsigned char[NONCE_SIZE];
+    ciphertext_ = new unsigned char[size_];
+    // parse the salt, nonce, and ciphertext
+    std::memcpy(salt_, in, SALT_SIZE);
+    std::memcpy(nonce_, in + SALT_SIZE, NONCE_SIZE);
+    std::memcpy(ciphertext_, in + HEADER_SIZE, size_);
 }
 
 // decrypts the file with a salt and returns a unique pointer to the plaintext
@@ -143,6 +137,20 @@ std::basic_ofstream<unsigned char>& crypto::CipherFile::write_to_file(std::basic
     return out;
 }
 
+// reads exported ciphertext from a file stream
+std::basic_ifstream<unsigned char>& crypto::operator>>(std::basic_ifstream<unsigned char>&stream, crypto::CipherFile& file){
+    // determine the size of the file
+    stream.seekg(0, stream.end);
+    size_t file_size = stream.tellg();
+    stream.seekg(0, stream.beg);
+    // read the file and import 
+    unsigned char* file_buf = new unsigned char[file_size];
+    stream.read(file_buf, file_size);
+    file.import_(file_buf, file_size);
+    delete[] file_buf;
+    return stream;
+}
+
 // deallocates memory for the cipherfile class
 crypto::CipherFile::~CipherFile(){
     delete salt_;
@@ -151,7 +159,7 @@ crypto::CipherFile::~CipherFile(){
 }
 
 // extraction operator for the cipherfile class
-std::basic_ofstream<unsigned char>& operator<<(std::basic_ofstream<unsigned char>&stream, crypto::CipherFile& ciphertext){
+std::basic_ofstream<unsigned char>& crypto::operator<<(std::basic_ofstream<unsigned char>&stream, crypto::CipherFile& ciphertext){
     return ciphertext.write_to_file(stream);
 }
 

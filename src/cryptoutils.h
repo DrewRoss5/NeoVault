@@ -1,6 +1,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <sodium/core.h>
 #include <sodium/crypto_secretbox.h>
 #include <sodium/crypto_hash_sha256.h>
 
@@ -22,10 +23,12 @@ namespace crypto{
             unsigned char* salt_;
             unsigned char* ciphertext_;
             void encrypt_(const std::string& file_path, const unsigned char key[]);
+            void import_(unsigned char* in, size_t ciphertext_size);
         public:
+            CipherFile() : nonce_(nullptr), salt_(nullptr), ciphertext_(nullptr), size_(0) {}
             CipherFile(const std::string& file_path, const std::string& password);
             CipherFile(const std::string& file_path, const unsigned char key[]);
-            CipherFile(unsigned char *in, size_t ciphertext_size);  
+            CipherFile(unsigned char* in, size_t ciphertext_size);  
             CipherFile(std::string file_path);
             std::unique_ptr<unsigned char[]> decrypt(unsigned char key[]);
             std::unique_ptr<unsigned char[]> decrypt(const std::string& password);
@@ -33,6 +36,7 @@ namespace crypto{
             std::basic_ofstream<unsigned char>& write_to_file(std::basic_ofstream<unsigned char>&);
             // operators 
             friend std::basic_ofstream<unsigned char>& operator<<(std::basic_ofstream<unsigned char>&stream, CipherFile& file);
+            friend std::basic_ifstream<unsigned char>& operator>>(std::basic_ifstream<unsigned char>&stream, CipherFile& file);
             // simple getters 
             const size_t size() {return size_;}
             const unsigned char* nonce() {return nonce_;}
@@ -52,9 +56,9 @@ namespace crypto{
         public:
             std::unique_ptr<unsigned char[]> export_vault();
             std::unique_ptr<unsigned char[]> decrypt(unsigned char* key);
-            std::basic_ofstream<unsigned char>& write(std::basic_ofstream<unsigned char>&);
-    };
+            std::basic_ofstream<unsigned char>& write_to_file(std::basic_ofstream<unsigned char>&);
 
+    };
     // other "utility" functions
     void gen_salt(unsigned char salt[]);
     void gen_nonce(unsigned char nonce[]);

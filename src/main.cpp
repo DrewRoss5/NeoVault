@@ -6,9 +6,8 @@
 using namespace crypto;
 
 int main(int argc, char* argv[]){
-    if (argc != 3){
+    if (argc != 3)
         std::cout << "This demo takes exactly two arugments." << std::endl;
-    }
     // determine the command the user wants to run 
     std::string command(argv[1]);
     if (command == "encrypt_f"){
@@ -21,10 +20,9 @@ int main(int argc, char* argv[]){
             CipherFile ciphertext(argv[2], password);
             // export the encrypted files
             std::basic_ofstream<unsigned char> out_file(argv[2], std::ios::binary);
-            ciphertext.write_to_file(out_file);
+            out_file << ciphertext;
             out_file.close();
             std::cout << "File Encrypted Succesfully" << std::endl;
-            std::cout << "Testing Purposes" << std::endl;
         }
         catch (std::exception err){
             std::cout << err.what() << std::endl;
@@ -38,9 +36,13 @@ int main(int argc, char* argv[]){
         std::getline(std::cin, password);
         // attempt to decrypt the file 
         try{
-            CipherFile ciphertext(argv[2]);
-            std::unique_ptr<unsigned char[]> plaintext = ciphertext.decrypt(password);
+            // import the ciphertext
+            CipherFile ciphertext;
+            std::basic_ifstream<unsigned char> in_file(argv[2], std::ios::binary);
+            in_file >> ciphertext;
+            in_file.close();
             // export the plaintext
+            std::unique_ptr<unsigned char[]> plaintext = ciphertext.decrypt(password);
             std::basic_ofstream<unsigned char> out_file(argv[2]);
             out_file.write(plaintext.get(), (ciphertext.size() - AES_OVERHEAD_SIZE));    
             out_file.close();
@@ -51,7 +53,6 @@ int main(int argc, char* argv[]){
             return 1;            
         }
     }
-    else{
+    else
         std::cout << "Unrecognized Command: \"" << command << "\"" << std::endl;
-    }
 }
