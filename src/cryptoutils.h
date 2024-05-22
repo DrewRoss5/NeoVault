@@ -65,6 +65,7 @@ namespace crypto{
             void decrypt(std::string out_path, std::string password);
             std::basic_ofstream<unsigned char>& write_to_file(std::basic_ofstream<unsigned char>&);
             // simple getters
+            const std::string path() {return path_;}
             const unsigned char* nonce() {return nonce_;}
             const unsigned char* salt() {return salt_;}
             ~Vault();

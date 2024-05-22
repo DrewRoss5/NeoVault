@@ -1,3 +1,4 @@
+#include <iostream>
 #include <fstream>
 #include <filesystem>
 #include <memory>
@@ -235,13 +236,12 @@ void crypto::Vault::decrypt(std::string out_path, unsigned char* key){
         std::basic_ofstream<unsigned char> out(out_path + '\\' + file_names_[i], std::ios::binary);
         out.write(files_[i]->decrypt(key).get(), files_[i]->size());
         out.close();
-        //delete[] files_[i];
     }
     // decrypt all subdirectories
     unsigned char tmp_key[KEY_SIZE];
     for (int i = 0; i < subdir_count; i++){
         hash_key_(key, subdirectories_[i]->salt(), tmp_key, KEY_SIZE);
-        subdirectories_[i]->decrypt(out_path, tmp_key);
+        subdirectories_[i]->decrypt(out_path + '\\' + get_base_path(subdirectories_[i]->path()), tmp_key);
     }
 }
 
@@ -258,6 +258,12 @@ void crypto::Vault::decrypt(std::string out_path, std::string password){
 crypto::Vault::~Vault(){
     delete[] nonce_;
     delete[] salt_;
+    size_t file_count = files_.size();
+    size_t subdir_count = subdirectories_.size();
+    for (int i = 0; i < file_count; i++)
+        delete[] files_[i];
+    for (int i = 0; i < subdir_count; i++)
+        delete subdirectories_[i];
 }
 
 // fills a salt-sized buffer with random bytes
