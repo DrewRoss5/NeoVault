@@ -1,4 +1,5 @@
 #include <fstream>
+#include <filesystem>
 #include <memory>
 #include <iomanip>
 #include <sstream>
@@ -8,6 +9,8 @@
 #include <sodium/crypto_hash_sha256.h>
 #include <sodium/randombytes.h>
 #include "cryptoutils.h"
+
+namespace fs = std::filesystem;
 
 // cipherfile functions 
 crypto::CipherFile::CipherFile(const std::string& file_path, const std::string& password){
@@ -60,7 +63,7 @@ void crypto::CipherFile::encrypt_(const std::string& file_path, const unsigned c
     ciphertext_ = new unsigned char[size_];
     crypto_secretbox_easy(ciphertext_, plaintext, file_size, nonce_, key);
     // free the memory allocated to the plaintext
-    delete plaintext;
+    delete[] plaintext;
 }
 
 // imports ciphertext from an unsigned char array of exported ciphertext
@@ -143,22 +146,118 @@ std::basic_ofstream<unsigned char>& crypto::CipherFile::write_to_file(std::basic
     return out;
 }
 
+// deallocates memory for the cipherfile class
+crypto::CipherFile::~CipherFile(){
+    if (salt_)
+        delete[] salt_;
+    delete[] nonce_;
+    delete[] ciphertext_;
+}
+
+// extraction operator for the cipherfile class
+std::basic_ofstream<unsigned char>& crypto::operator<<(std::basic_ofstream<unsigned char>&stream, crypto::CipherFile& ciphertext){
+    return ciphertext.write_to_file(stream);
+}
+
 // reads exported ciphertext from a file stream
 std::basic_ifstream<unsigned char>& crypto::operator>>(std::basic_ifstream<unsigned char>&stream, crypto::CipherFile& file){
     file.import_from_file_(stream);
     return stream;
 }
 
-// deallocates memory for the cipherfile class
-crypto::CipherFile::~CipherFile(){
-    delete salt_;
-    delete nonce_;
-    delete ciphertext_;
+// vault constuctors 
+crypto::Vault::Vault(std::string path, unsigned char* master_key){
+    path_ = path;
+    // generate a random salt and nonce
+    salt_ = new unsigned char[SALT_SIZE];
+    nonce_ = new unsigned char[NONCE_SIZE];
+    gen_salt(salt_);
+    gen_nonce(nonce_);
+    // hash the master key and encrypt the vault
+    unsigned char* key = new unsigned char[KEY_SIZE];
+    hash_key_(master_key, salt_, key, KEY_SIZE);
+    encrypt_(key);
+    delete[] key;
 }
 
-// extraction operator for the cipherfile class
-std::basic_ofstream<unsigned char>& crypto::operator<<(std::basic_ofstream<unsigned char>&stream, crypto::CipherFile& ciphertext){
-    return ciphertext.write_to_file(stream);
+crypto::Vault::Vault(std::string path, std::string password){
+    path_ = path;
+    // generate a random salt and nonce
+    salt_ = new unsigned char[SALT_SIZE];
+    nonce_ = new unsigned char[NONCE_SIZE];
+    gen_salt(salt_);
+    gen_nonce(nonce_);
+    // hash the password into a 256-bit key
+    unsigned char* key = new unsigned char[KEY_SIZE];
+    unsigned char* pw_bytes = (unsigned char*) password.c_str();
+    hash_key_(pw_bytes, salt_, key, password.size());
+    encrypt_(key);
+    delete[] key;
+}
+
+void crypto::Vault::encrypt_(unsigned char* key){
+    std::string tmp_path;
+    for (const auto& child : fs::directory_iterator(path_)){
+        tmp_path = child.path().string();
+        // validate the path name
+        if (tmp_path.find(';') != std::string::npos || tmp_path.find('?') != std::string::npos)
+            throw std::exception("Plaintext files must not have any of the following in their names: ;?");
+        if (fs::is_directory(child)){
+            // create a new encrypted vault
+            subdirectories_.push_back(new Vault(tmp_path, key));
+        }
+        else{
+            file_names_.push_back(get_base_path(tmp_path));
+            // read a new cipherfile from the path
+            files_.push_back(new CipherFile(tmp_path, key));
+        }
+    }
+}
+
+// hashes a key, be it bytes from a password or a master key, with a salt
+void crypto::Vault::hash_key_(unsigned char* plaintext, const unsigned char* salt, unsigned char* key, size_t plaintext_size){
+    crypto_hash_sha256_state key_state;
+    crypto_hash_sha256_init(&key_state);
+    // update the key state with the master key and salt
+    crypto_hash_sha256_update(&key_state, salt, SALT_SIZE);
+    crypto_hash_sha256_update(&key_state, plaintext, plaintext_size);
+    // update the key
+    crypto_hash_sha256_final(&key_state, key);
+}
+
+// decrypts the vault and outputs it's contents to a provided path
+void crypto::Vault::decrypt(std::string out_path, unsigned char* key){
+    fs::create_directory(out_path);
+    size_t file_count = files_.size();
+    size_t subdir_count = subdirectories_.size();
+    // decrypt all individual files 
+    for(int i = 0; i < file_count; i++){
+        std::basic_ofstream<unsigned char> out(out_path + '\\' + file_names_[i], std::ios::binary);
+        out.write(files_[i]->decrypt(key).get(), files_[i]->size());
+        out.close();
+        //delete[] files_[i];
+    }
+    // decrypt all subdirectories
+    unsigned char tmp_key[KEY_SIZE];
+    for (int i = 0; i < subdir_count; i++){
+        hash_key_(key, subdirectories_[i]->salt(), tmp_key, KEY_SIZE);
+        subdirectories_[i]->decrypt(out_path, tmp_key);
+    }
+}
+
+// decrypts the vault with a password
+void crypto::Vault::decrypt(std::string out_path, std::string password){
+    // hash the password
+    unsigned char key[KEY_SIZE];
+    unsigned char* pw_bytes = (unsigned char*) password.c_str();
+    hash_key_(pw_bytes, salt_, key, password.size());
+    // decrypt the vault
+    decrypt(out_path, key);
+}
+
+crypto::Vault::~Vault(){
+    delete[] nonce_;
+    delete[] salt_;
 }
 
 // fills a salt-sized buffer with random bytes
@@ -190,4 +289,12 @@ std::string crypto::hex_string(const unsigned char bytes[], size_t size){
     for (int i = 0; i < size; i++)
         ss << std::setw(2) << std::hex << std::setfill('0') << (int) bytes[i];
     return ss.str();
+}
+
+// returns a string of a file path with leading paths stripped
+std::string crypto::get_base_path(std::string file_path){
+    if (file_path.find('\\') != std::string::npos)
+        return file_path.substr(file_path.find_last_of('\\') + 1);
+    else
+        return file_path;
 }

@@ -6,8 +6,10 @@
 using namespace crypto;
 
 int main(int argc, char* argv[]){
-    if (argc != 3)
+    if (argc != 3){
         std::cout << "This demo takes exactly two arugments." << std::endl;
+        return 1;
+    }
     // determine the command the user wants to run 
     std::string command(argv[1]);
     if (command == "encrypt_f"){

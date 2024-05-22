@@ -49,22 +49,32 @@ namespace crypto{
     // a class representing an encrypted directory 
     class Vault{
         private:
-            std::string parent_path;
-            std::vector<Vault> subdirectories_;
-            std::vector<CipherFile> files_;
-            std::unique_ptr<unsigned char[]> nonce_;
-            std::unique_ptr<unsigned char[]> salt_;
+            std::string path_;
+            std::vector<Vault*> subdirectories_;
+            std::vector<CipherFile*> files_;
+            std::vector<std::string> file_names_;
+            unsigned char* nonce_;
+            unsigned char* salt_;
+            void encrypt_(unsigned char* key);
+            void hash_key_(unsigned char* plaintext, const unsigned char* salt, unsigned char* key, size_t plaintext_size);
         public:
-            std::unique_ptr<unsigned char[]> export_vault();
-            std::unique_ptr<unsigned char[]> decrypt(unsigned char* key);
+            Vault(std::string path, std::string password);
+            Vault(std::string path, unsigned char* master_key);
+            static Vault import_vault(std::string path);
+            void decrypt(std::string out_path, unsigned char* key);
+            void decrypt(std::string out_path, std::string password);
             std::basic_ofstream<unsigned char>& write_to_file(std::basic_ofstream<unsigned char>&);
-
+            // simple getters
+            const unsigned char* nonce() {return nonce_;}
+            const unsigned char* salt() {return salt_;}
+            ~Vault();
     };
     // other "utility" functions
     void gen_salt(unsigned char salt[]);
     void gen_nonce(unsigned char nonce[]);
     void hash_key(std::string password, const unsigned char salt[], unsigned char key[]);
     std::string hex_string(const unsigned char bytes[], size_t size);
+    std::string get_base_path(std::string file_path);
 }
 
 #endif 
