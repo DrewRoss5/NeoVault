@@ -1,4 +1,3 @@
-#include <iostream>
 #include <fstream>
 #include <filesystem>
 #include <memory>
@@ -35,7 +34,7 @@ crypto::CipherFile::CipherFile(unsigned char* in, size_t ciphertext_size){
 
 crypto::CipherFile::CipherFile(std::string file_path){
     // open the file and ensure it exits
-    std::basic_ifstream<unsigned char> in(file_path, std::ios_base::binary);
+    std::basic_fstream<unsigned char> in(file_path, std::ios_base::binary);
     if (!in.good())
         throw std::exception("Invalid Input File!");
     import_from_file_(in);
@@ -48,10 +47,7 @@ void crypto::CipherFile::encrypt_(const std::string& file_path, const unsigned c
     std::basic_fstream<unsigned char> in_stream(file_path);
     if (!in_stream.good())
         throw std::invalid_argument("The file could not be read");
-    // get the size of the file
-    in_stream.seekg(0, in_stream.end);
-    size_t file_size = in_stream.tellg();
-    in_stream.seekg(0, in_stream.beg);
+    size_t file_size = get_file_size(in_stream);
     // read the plaintext of the file
     unsigned char* plaintext = new unsigned char[file_size];
     in_stream.read(plaintext, file_size);
@@ -84,11 +80,8 @@ void crypto::CipherFile::import_(unsigned char* in, size_t ciphertext_size){
 }
 
 // imports ciphertext from a file stream of an exported ciphertext file
-void crypto::CipherFile::import_from_file_(std::basic_istream<unsigned char>& in_stream){
-    // get the size of the file
-    in_stream.seekg(0, in_stream.end);
-    size_t file_size = in_stream.tellg();
-    in_stream.seekg(0, in_stream.beg);
+void crypto::CipherFile::import_from_file_(std::basic_fstream<unsigned char>& in_stream){
+    size_t file_size = get_file_size(in_stream);
     // read the file to a buffer 
     unsigned char* file_buf = new unsigned char[file_size];
     in_stream.read(file_buf, file_size);
@@ -161,7 +154,7 @@ std::basic_ofstream<unsigned char>& crypto::operator<<(std::basic_ofstream<unsig
 }
 
 // reads exported ciphertext from a file stream
-std::basic_ifstream<unsigned char>& crypto::operator>>(std::basic_ifstream<unsigned char>&stream, crypto::CipherFile& file){
+std::basic_fstream<unsigned char>& crypto::operator>>(std::basic_fstream<unsigned char>&stream, crypto::CipherFile& file){
     file.import_from_file_(stream);
     return stream;
 }
@@ -255,6 +248,24 @@ void crypto::Vault::decrypt(std::string out_path, std::string password){
     decrypt(out_path, key);
 }
 
+// creates a string listing all files (with their respective sizes) and subdirectories in vault
+std::string crypto::Vault::create_file_table(){
+    size_t file_count = files_.size();
+    size_t subdir_count = subdirectories_.size();
+    std::stringstream table;
+    table << "BD" << path_ << ";";
+    for (int i = 0; i < file_count; i++){
+        std::basic_fstream<unsigned char> tmp(path_ + '\\'+ file_names_[i], std::ios::binary);
+        table << "BF" << file_names_[i] << '?' << get_file_size(tmp) << ';';
+        tmp.close();
+    }
+    for (int i = 0; i < subdir_count; i++){
+        table << subdirectories_[i]->create_file_table() << ";";
+    }
+    table << "ED";
+    return table.str();
+}
+
 crypto::Vault::~Vault(){
     delete[] nonce_;
     delete[] salt_;
@@ -303,4 +314,12 @@ std::string crypto::get_base_path(std::string file_path){
         return file_path.substr(file_path.find_last_of('\\') + 1);
     else
         return file_path;
+}
+
+// returns the size of a file stream
+size_t crypto::get_file_size(std::basic_fstream<unsigned char>& in){
+    in.seekg(0, in.end);
+    size_t file_size = in.tellg();
+    in.seekg(0, in.beg);
+    return file_size;
 }

@@ -40,7 +40,7 @@ int main(int argc, char* argv[]){
         try{
             // import the ciphertext
             CipherFile ciphertext;
-            std::basic_ifstream<unsigned char> in_file(argv[2], std::ios::binary);
+            std::basic_fstream<unsigned char> in_file(argv[2], std::ios::binary);
             in_file >> ciphertext;
             in_file.close();
             // export the plaintext

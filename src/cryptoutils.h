@@ -24,7 +24,7 @@ namespace crypto{
             unsigned char* ciphertext_;
             void encrypt_(const std::string& file_path, const unsigned char key[]);
             void import_(unsigned char* in, size_t ciphertext_size);
-            void import_from_file_(std::basic_istream<unsigned char>& in);
+            void import_from_file_(std::basic_fstream<unsigned char>& in);
         public:
             CipherFile() : nonce_(nullptr), salt_(nullptr), ciphertext_(nullptr), size_(0) {}
             CipherFile(const std::string& file_path, const std::string& password);
@@ -37,7 +37,7 @@ namespace crypto{
             std::basic_ofstream<unsigned char>& write_to_file(std::basic_ofstream<unsigned char>&);
             // operators 
             friend std::basic_ofstream<unsigned char>& operator<<(std::basic_ofstream<unsigned char>&stream, CipherFile& file);
-            friend std::basic_ifstream<unsigned char>& operator>>(std::basic_ifstream<unsigned char>&stream, CipherFile& file);
+            friend std::basic_fstream<unsigned char>& operator>>(std::basic_fstream<unsigned char>&stream, CipherFile& file);
             // simple getters 
             const size_t size() {return size_;}
             const unsigned char* nonce() {return nonce_;}
@@ -64,6 +64,7 @@ namespace crypto{
             void decrypt(std::string out_path, unsigned char* key);
             void decrypt(std::string out_path, std::string password);
             std::basic_ofstream<unsigned char>& write_to_file(std::basic_ofstream<unsigned char>&);
+            std::string create_file_table();
             // simple getters
             const std::string path() {return path_;}
             const unsigned char* nonce() {return nonce_;}
@@ -76,6 +77,7 @@ namespace crypto{
     void hash_key(std::string password, const unsigned char salt[], unsigned char key[]);
     std::string hex_string(const unsigned char bytes[], size_t size);
     std::string get_base_path(std::string file_path);
+    size_t get_file_size(std::basic_fstream<unsigned char>& in);
 }
 
 #endif 
