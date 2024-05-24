@@ -255,7 +255,7 @@ std::string crypto::Vault::create_file_table(){
     std::stringstream table;
     table << "BD" << path_ << ";";
     for (int i = 0; i < file_count; i++){
-        std::basic_fstream<unsigned char> tmp(path_ + '\\'+ file_names_[i], std::ios::binary);
+        std::basic_fstream<unsigned char> tmp(path_ + '\\'+ file_names_[i]);
         table << "BF" << file_names_[i] << '?' << get_file_size(tmp) << ';';
         tmp.close();
     }
