@@ -1,4 +1,6 @@
+#include <iostream>
 #include <fstream>
+#include <stack>
 #include <filesystem>
 #include <memory>
 #include <iomanip>
@@ -149,7 +151,7 @@ crypto::CipherFile::~CipherFile(){
 }
 
 // extraction operator for the cipherfile class
-std::basic_ofstream<unsigned char>& crypto::operator<<(std::basic_ofstream<unsigned char>&stream, crypto::CipherFile& ciphertext){
+std::basic_ofstream<unsigned char>& crypto::operator<<(std::basic_ofstream<unsigned char>& stream, crypto::CipherFile& ciphertext){
     return ciphertext.write_to_file(stream);
 }
 
@@ -187,6 +189,12 @@ crypto::Vault::Vault(std::string path, std::string password){
     hash_key_(pw_bytes, salt_, key, password.size());
     encrypt_(key);
     delete[] key;
+}
+
+crypto::Vault::Vault(std::string vault_path, unsigned char* vault_nonce, unsigned char* vault_salt){
+    path_ = vault_path;
+    nonce_ = vault_nonce;
+    salt_ = vault_salt;
 }
 
 void crypto::Vault::encrypt_(unsigned char* key){
@@ -253,18 +261,50 @@ std::string crypto::Vault::create_file_table(){
     size_t file_count = files_.size();
     size_t subdir_count = subdirectories_.size();
     std::stringstream table;
-    table << "BD" << path_ << ";";
-    for (int i = 0; i < file_count; i++){
-        std::basic_fstream<unsigned char> tmp(path_ + '\\'+ file_names_[i]);
-        table << "BF" << file_names_[i] << '?' << get_file_size(tmp) + AES_OVERHEAD_SIZE << ';';
-        tmp.close();
-    }
-    for (int i = 0; i < subdir_count; i++){
+    table << "BD" << path_ << '?' << hex_string(salt_, SALT_SIZE) << hex_string(nonce_, NONCE_SIZE) << ';';
+    for (int i = 0; i < file_count; i++)
+        table << "BF" << file_names_[i] << '?' << files_[i]->size() + HEADER_SIZE << ';';
+    for (int i = 0; i < subdir_count; i++)
         table << subdirectories_[i]->create_file_table() << ";";
-    }
     table << "ED";
     return table.str();
 }
+
+/*
+    encrypts all files and writes the ciphertexts of them to a provided stream. 
+    This simply writes the files of this vault and all subvaults, under the assumption a file table has been provided
+*/
+void crypto::Vault::export_vault_(std::basic_ofstream<unsigned char>& out){
+    size_t file_count = files_.size();
+    size_t subdir_count = subdirectories_.size();
+    for (int i = 0; i < file_count; i++)
+        files_[i]->write_to_file(out);
+    for (int i = 0; i < subdir_count; i++)
+        subdirectories_[i]->export_vault_(out);
+}
+
+std::basic_ofstream<unsigned char>& crypto::Vault::write_to_file(std::basic_ofstream<unsigned char>& out, std::string password){
+    // generate the file table
+    std::string tmp_table = create_file_table();
+    unsigned char* table = (unsigned char*) tmp_table.c_str();
+    size_t table_size = tmp_table.size();
+    // hash the key
+    unsigned char key[KEY_SIZE];
+    unsigned char* pw_bytes = (unsigned char*) password.c_str();
+    hash_key_(pw_bytes, salt_, key, strlen((char*) pw_bytes));
+    // encrypt the table 
+    size_t ciphertext_size = table_size + AES_OVERHEAD_SIZE;
+    unsigned char* table_ciphertext = new unsigned char[ciphertext_size];
+    crypto_secretbox_easy(table_ciphertext, table, table_size, nonce_, key);
+    // write the length to the file
+    std::cout << (char*) std::to_string(ciphertext_size).c_str() << std::endl;
+    std::string len_str =  std::to_string(ciphertext_size);
+    out << len_str.c_str()  << ';';
+    out << table_ciphertext;
+    export_vault_(out);
+    return out;
+}
+
 
 crypto::Vault::~Vault(){
     delete[] nonce_;

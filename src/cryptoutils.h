@@ -12,7 +12,7 @@
 #define SALT_SIZE 16
 #define AES_OVERHEAD_SIZE crypto_secretbox_MACBYTES
 #define NONCE_SIZE crypto_secretbox_NONCEBYTES
-#define HEADER_SIZE 40
+#define HEADER_SIZE (NONCE_SIZE + SALT_SIZE)
 
 namespace crypto{
     // a class representing a single encrypted file
@@ -57,13 +57,16 @@ namespace crypto{
             unsigned char* salt_;
             void encrypt_(unsigned char* key);
             void hash_key_(unsigned char* plaintext, const unsigned char* salt, unsigned char* key, size_t plaintext_size);
+            void export_vault_(std::basic_ofstream<unsigned char>&);
+            void add_child(CipherFile& cipher, std::string file_name);
         public:
             Vault(std::string path, std::string password);
             Vault(std::string path, unsigned char* master_key);
+            Vault(std::string path, unsigned char* nonce, unsigned char* salt);
             static Vault import_vault(std::string path);
             void decrypt(std::string out_path, unsigned char* key);
             void decrypt(std::string out_path, std::string password);
-            std::basic_ofstream<unsigned char>& write_to_file(std::basic_ofstream<unsigned char>&);
+            std::basic_ofstream<unsigned char>& write_to_file(std::basic_ofstream<unsigned char>& in, std::string password);
             std::string create_file_table();
             // simple getters
             const std::string path() {return path_;}
