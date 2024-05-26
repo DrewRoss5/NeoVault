@@ -209,12 +209,18 @@ crypto::Vault crypto::Vault::import_vault(std::string path){
     std::string size_str;
     int pos = 0;
     while (tmp != ';'){
-        size_str.push_back(file_buf[pos]);
+        if (tmp != ';')
+            size_str.push_back(file_buf[pos]);
         tmp = file_buf[pos];
         pos++;
     }
     size_t table_size = std::stoi(size_str);
-    // parse the table
+    // decrypt and parse the table
+    unsigned char* table_buf = new unsigned char[table_size];
+    std::memcpy(table_buf, file_buf + pos - 1, table_size);
+    pos += table_size;
+
+    
 }
 
 void crypto::Vault::encrypt_(unsigned char* key){
@@ -304,6 +310,11 @@ void crypto::Vault::export_vault_(std::basic_ofstream<unsigned char>& out){
 }
 
 std::basic_ofstream<unsigned char>& crypto::Vault::write_to_file(std::basic_ofstream<unsigned char>& out, std::string password){
+    // generate a nonce and salt for the file table
+    unsigned char table_salt[SALT_SIZE];
+    unsigned char table_nonce[NONCE_SIZE];
+    gen_nonce(table_nonce);
+    gen_salt(table_salt);
     // generate the file table
     std::string tmp_table = create_file_table();
     unsigned char* table = (unsigned char*) tmp_table.c_str();
@@ -311,15 +322,17 @@ std::basic_ofstream<unsigned char>& crypto::Vault::write_to_file(std::basic_ofst
     // hash the key
     unsigned char key[KEY_SIZE];
     unsigned char* pw_bytes = (unsigned char*) password.c_str();
-    hash_key_(pw_bytes, salt_, key, strlen((char*) pw_bytes));
+    hash_key_(pw_bytes, table_salt, key, strlen((char*) pw_bytes));
     // encrypt the table 
     size_t ciphertext_size = table_size + AES_OVERHEAD_SIZE;
     unsigned char* table_ciphertext = new unsigned char[ciphertext_size];
-    crypto_secretbox_easy(table_ciphertext, table, table_size, nonce_, key);
+    crypto_secretbox_easy(table_ciphertext, table, table_size, table_nonce, key);
     // write the length to the file
     std::string len_str =  std::to_string(ciphertext_size);
     out << len_str.c_str()  << ';';
     out << table_ciphertext;
+    out << table_salt;
+    out << table_nonce;
     export_vault_(out);
     return out;
 }
