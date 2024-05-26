@@ -1,4 +1,3 @@
-#include <iostream>
 #include <fstream>
 #include <stack>
 #include <filesystem>
@@ -197,6 +196,27 @@ crypto::Vault::Vault(std::string vault_path, unsigned char* vault_nonce, unsigne
     salt_ = vault_salt;
 }
 
+crypto::Vault crypto::Vault::import_vault(std::string path){
+    std::basic_fstream<unsigned char> in(path, std::ios::binary);
+    if (!in.good())
+        throw std::exception("Failed to read vault file");
+    // read the file's contents to a buffer
+    size_t file_size = get_file_size(in);
+    unsigned char* file_buf = new unsigned char[file_size];
+    in.read(file_buf, file_size);
+    // get the size of the encrypted file table 
+    char tmp;
+    std::string size_str;
+    int pos = 0;
+    while (tmp != ';'){
+        size_str.push_back(file_buf[pos]);
+        tmp = file_buf[pos];
+        pos++;
+    }
+    size_t table_size = std::stoi(size_str);
+    // parse the table
+}
+
 void crypto::Vault::encrypt_(unsigned char* key){
     std::string tmp_path;
     for (const auto& child : fs::directory_iterator(path_)){
@@ -297,7 +317,6 @@ std::basic_ofstream<unsigned char>& crypto::Vault::write_to_file(std::basic_ofst
     unsigned char* table_ciphertext = new unsigned char[ciphertext_size];
     crypto_secretbox_easy(table_ciphertext, table, table_size, nonce_, key);
     // write the length to the file
-    std::cout << (char*) std::to_string(ciphertext_size).c_str() << std::endl;
     std::string len_str =  std::to_string(ciphertext_size);
     out << len_str.c_str()  << ';';
     out << table_ciphertext;
